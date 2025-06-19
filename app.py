@@ -201,7 +201,7 @@ fig.update_layout(
         range=[min(horas), max(horas)]
     ),
     yaxis=dict(title='Nivel Promedio por zona (%)', range=[0, 100]),
-    title='Evolución de Niveles de Agua',
+    # title='Evolución de Niveles de Agua',
     height=450,
     template='plotly_white',
     showlegend=False
