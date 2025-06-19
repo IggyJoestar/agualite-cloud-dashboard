@@ -119,6 +119,10 @@ with st.sidebar:
 # --------------------------------------------
 # 📊 Evolución de predicciones horarias
 # --------------------------------------------
+import plotly.graph_objects as go
+import pandas as pd
+import numpy as np
+
 st.markdown("### 📊 Evolución de Niveles de Agua por hora")
 
 # Obtener columnas de predicción horaria
@@ -132,73 +136,85 @@ if not pred_columns:
 for col in pred_columns:
     df[col] = pd.to_numeric(df[col], errors="coerce") * 100
 
-# Obtener horas y valores
+# Obtener horas y valores promedio
 horas = sorted([int(col.split('_')[-1]) for col in pred_columns])
 valores = df[pred_columns].mean().values
 
-# Crear gráfico con rango dinámico
-fig, ax = plt.subplots(figsize=(12, 5))
-
-# Gráfico de línea con marcadores
-line = ax.plot(horas, valores, 
-               marker='o', markersize=8, 
-               linestyle='-', linewidth=2.5, 
-               color='#1f77b4', alpha=0.8)
-
-# Rellenar área bajo la curva
-ax.fill_between(horas, valores, 0, 
-                color='skyblue', alpha=0.3)
-
-# Configurar ejes dinámicos
-min_hora = min(horas)
-max_hora = max(horas)
-ax.set_xlabel("Hora del Día", fontsize=12, labelpad=10)
-ax.set_ylabel("Nivel Promedio por zona (%)", fontsize=12, labelpad=10)
-ax.set_title("Evolución de Niveles de agua", fontsize=14, pad=15)
-ax.set_ylim(0, 100)
-ax.set_xlim(min_hora - 1, max_hora + 1)
-ax.set_xticks(horas)
-ax.grid(True, linestyle='--', alpha=0.3)
-ax.tick_params(axis='both', which='major', labelsize=10)
-
-# Líneas de referencia
-ax.axhline(y=30, color='red', linestyle='--', alpha=0.7, label='Nivel crítico')
-ax.axhline(y=80, color='green', linestyle='--', alpha=0.7, label='Nivel óptimo')
-ax.legend(loc='best', framealpha=0.9)
-
-# Etiquetas de valores
-for hora, valor in zip(horas, valores):
-    color = 'black' if valor > 40 else 'white'
-    ax.text(hora, valor + 3, f"{valor:.0f}%", 
-            ha='center', va='bottom',
-            color=color, fontsize=9, fontweight='bold',
-            bbox=dict(facecolor='white' if valor > 40 else '#333333', 
-                      alpha=0.7, boxstyle='round,pad=0.2'))
-
-# Destacar horas críticas
+# Índices de máximo y mínimo
 max_idx = np.argmax(valores)
 min_idx = np.argmin(valores)
-ax.plot(horas[max_idx], valores[max_idx], 'ro', markersize=8, label='Máximo')
-ax.plot(horas[min_idx], valores[min_idx], 'go', markersize=8, label='Mínimo')
 
-# Añadir leyenda para puntos destacados
-handles, labels = ax.get_legend_handles_labels()
-ax.legend(handles, labels, loc='upper right')
+# Crear figura
+fig = go.Figure()
 
-st.pyplot(fig, use_container_width=True)
+# Línea de evolución
+fig.add_trace(go.Scatter(
+    x=horas,
+    y=valores,
+    mode='lines+markers',
+    name='Nivel promedio',
+    line=dict(color='#1f77b4', width=3),
+    marker=dict(size=8)
+))
 
-# --------------------------------------------
-# 🔍 Detalles de horas críticas
-# --------------------------------------------
+# Área bajo la curva
+fig.add_trace(go.Scatter(
+    x=horas + horas[::-1],
+    y=list(valores) + [0]*len(valores),
+    fill='toself',
+    fillcolor='rgba(135, 206, 250, 0.3)',
+    line=dict(color='rgba(255,255,255,0)'),
+    hoverinfo="skip",
+    showlegend=False
+))
+
+# Líneas de referencia
+fig.add_hline(y=80, line_dash="dash", line_color="green", annotation_text="Nivel óptimo (80%)", annotation_position="top left")
+fig.add_hline(y=30, line_dash="dash", line_color="red", annotation_text="Nivel crítico (30%)", annotation_position="bottom left")
+
+# Puntos destacados
+fig.add_trace(go.Scatter(
+    x=[horas[max_idx]], 
+    y=[valores[max_idx]],
+    mode='markers+text',
+    marker=dict(color='green', size=10),
+    text=["Máximo"],
+    textposition="top center",
+    name='Máximo'
+))
+fig.add_trace(go.Scatter(
+    x=[horas[min_idx]], 
+    y=[valores[min_idx]],
+    mode='markers+text',
+    marker=dict(color='red', size=10),
+    text=["Mínimo"],
+    textposition="bottom center",
+    name='Mínimo'
+))
+
+# Layout sin -1 ni 24
+fig.update_layout(
+    xaxis=dict(
+        title='Hora del Día',
+        tickmode='linear',
+        dtick=1,
+        range=[min(horas), max(horas)]
+    ),
+    yaxis=dict(title='Nivel Promedio por zona (%)', range=[0, 100]),
+    title='Evolución de Niveles de Agua',
+    height=450,
+    template='plotly_white'
+)
+
+# Mostrar el gráfico
+st.plotly_chart(fig, use_container_width=True)
+
+# Métricas
 st.markdown("### 🔍 Estadísticas importantes")
-
 col1, col2, col3 = st.columns(3)
-col1.metric("Hora de máximo nivel", 
-            f"{horas[max_idx]}:00", 
-            f"{valores[max_idx]:.1f}%")
-col2.metric("Hora de mínimo nivel", 
-            f"{horas[min_idx]}:00", 
-            f"{valores[min_idx]:.1f}%")
+col1.metric("Hora de máximo nivel", f"{horas[max_idx]}:00", f"{valores[max_idx]:.1f}%")
+col2.metric("Hora de mínimo nivel", f"{horas[min_idx]}:00", f"{valores[min_idx]:.1f}%")
+
 
 # --------------------------------------------
 # ℹ️ Información adicional
